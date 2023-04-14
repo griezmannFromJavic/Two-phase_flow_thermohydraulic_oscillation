@@ -1,6 +1,6 @@
 import numpy as np
 import CoolProp.CoolProp as CP
-from funkcije import alpha_unutarnje, dpdl_trenja, gustoca_interpolirana, temperatura_interpolirana, x_termo_coolprop
+from funkcije import alpha_unutarnje, dpdl_trenja, gustoca_interpolirana, temperatura_interpolirana
 from velicine import *
 import os
 import scipy.ndimage
@@ -33,7 +33,7 @@ def prikaz_velicina_u_vremenskom_rasponu(velicina, pocetni_trenutak, krajnji_tre
     return None
 
 def prikaz_izracunatih_velicina_prostorno(trenutak, velicina):
-    plt.plot(np.linspace(0, l_c, n_l), rjesenje[trenutak, :], label=str(vremena[trenutak]))
+    plt.plot(np.linspace(0, l_c, n_l), rjesenje[trenutak, velicina, :], label=str(vremena[trenutak]))
     plt.legend()
     plt.xlabel('udaljenost od ustrujne povrsine [m]')
     plt.ylabel(raspored_velicina[velicina] + ' ' + jedinice[velicina])
@@ -158,10 +158,11 @@ def provjera_alphe(p, x_min, x_max, m, q):
     h_min = h_fluid + x_min * h_isparavanja
     h_max = h_fluid + x_max * h_isparavanja
     alpha = alpha_unutarnje(p, np.linspace(h_min, h_max, 1000), m, q)
-    alpha_0 = alpha_unutarnje(p, h_fluid, m, q)
+    alpha_0 = alpha_unutarnje(p, h_fluid - 0.01 * h_isparavanja, m, q)
     omjer = alpha / alpha_0
-    plt.plot(np.linspace(x_min, x_max, 1000), omjer, label=str(q))
-    plt.legend()
+    plt.plot(np.linspace(x_min, x_max, 1000), alpha)
+    plt.xlabel('termodinamički udio pare [-]')
+    plt.ylabel('koeficijent prijelaza topline [W / m^2 K]')
     return None
 
 def prikaz_temperatura(trenutak):
@@ -169,7 +170,7 @@ def prikaz_temperatura(trenutak):
     plt.plot(np.linspace(0, l_c, n_l), ts[trenutak], label='temperatura isparavanja')
     # plt.plot([0, l_c], [temperatura_ogrijevnog_medija, temperatura_ogrijevnog_medija], label='temperatura ogrijevnog medija')
     plt.plot(np.linspace(0, l_c, n_l), rjesenje[trenutak, 4, :], label='temperatura fluida')
-    plt.plot(np.linspace(0, l_c, n_l), rjesenje[trenutak, 5, :], label='temperatura stijenke')
+    # plt.plot(np.linspace(0, l_c, n_l), rjesenje[trenutak, 5, :], label='temperatura stijenke')
     plt.legend()
     return None
 
@@ -206,7 +207,9 @@ def provjera_aproksimiranih_gustoca(p, x_min, x_max):
     gustoce_stvarno = CP.PropsSI('D', 'P', p, 'H', entalpije, rt)
     gustoce_aproksimacija = gustoca_interpolirana(np.repeat(p, n), entalpije)
     plt.plot(xt, gustoce_stvarno, label='gustoce iz baze podataka')
-    plt.plot(xt, gustoce_aproksimacija, label='aproksimirane_gustoce')
+    plt.plot(xt, gustoce_aproksimacija, label='aproksimirane gustoce')
+    plt.xlabel('termodinamički sadržaj pare [-]')
+    plt.ylabel('gustoca [kg / m^3]')
     plt.legend()
     return None
 
@@ -222,6 +225,40 @@ def provjera_aproksimiranih_temperatura(p, x_min, x_max):
     temperature_stvarno = CP.PropsSI('T', 'P', p, 'H', entalpije, rt)
     temperature_aproksimacija = temperatura_interpolirana(np.repeat(p, n), entalpije)
     plt.plot(xt, temperature_stvarno, label='gustoce iz baze podataka')
-    plt.plot(xt, temperature_aproksimacija, label='aproksimirane_gustoce')
+    plt.plot(xt, temperature_aproksimacija, label='aproksimirane temperature')
+    plt.xlabel('termodinamički sadržaj pare [-]')
+    plt.ylabel('temperautra [K]')
     plt.legend()
     return None
+
+def prosjecna_gustoca_toplinskog_toka(trenutak):
+    return np.average(rjesenje[trenutak, 6, :])
+
+def provjera_alphi(trenutak):
+    brzina = rjesenje[trenutak, 0, :]
+    tlak = rjesenje[trenutak, 1, :]
+    entalpija = rjesenje[trenutak, 2, :]
+    gustoca = rjesenje[trenutak, 3, :]
+    temperatura = rjesenje[trenutak, 4, :]
+    temperatura_stijenke = rjesenje[trenutak, 5, :]
+    gustoca_toplinskog_toka = rjesenje[trenutak, 6, :]
+
+    alpha_a = gustoca_toplinskog_toka / (temperatura_stijenke  - temperatura)
+    alpha_b = alpha_unutarnje(tlak, entalpija, brzina * gustoca, gustoca_toplinskog_toka)
+
+    return alpha_a / alpha_b
+
+
+def prikaz_lokacija_isparavanja():
+    xt = termo_udio_pare()
+    umnozak_susjeda = xt[:, 1:] * xt[:, :-1]
+    nultocke = np.ones(np.shape(umnozak_susjeda)) * (umnozak_susjeda < 0)
+    elementi = np.transpose(np.nonzero(nultocke))[:,1]
+    lokacije = [lokacije_x[i] for i in elementi]
+    plt.plot(vremena, lokacije)
+    return lokacije
+
+def odnos_gustoca(tlak):
+    return CP.PropsSI('D', 'P', tlak, 'Q', 0, rt) / CP.PropsSI('D', 'P', tlak, 'Q', 1, rt)
+
+

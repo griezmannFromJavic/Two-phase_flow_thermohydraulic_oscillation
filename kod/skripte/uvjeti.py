@@ -1,10 +1,10 @@
 from funkcije import *
 import CoolProp.CoolProp as CP
 
-tlak_ekspanzije = 2e5
+tlak_ekspanzije = 0.1e5
 
-p_iz = 75e5
-t_ul = 273.15 + 260 # cca 285
+p_iz = 4e5
+t_ul = 273.15 + 68 # 69
 h_ul = CP.PropsSI('H', 'T', t_ul, 'P', p_iz, rt)
 rho_ul = CP.PropsSI('D', 'T', t_ul, 'P', p_iz, rt)
 u_ul = brzina_ekspanzije(tlak_ekspanzije, rho_ul)
@@ -20,7 +20,7 @@ rho_0 = CP.PropsSI('D', 'P', p_0, 'T', t_0, rt)
 h_0 = CP.PropsSI('H', 'P', p_0, 'T', t_0, rt)
 u_0 = rho_ul * u_ul / rho_0
 ts_0 = t_0 + 10
-q_0 = np.zeros(n_l) + 10000
+q_0 = np.zeros(n_l) + 1000
 
 stanje_0 = np.stack( (u_0, p_0, h_0, rho_0, t_0, ts_0, q_0) )
 

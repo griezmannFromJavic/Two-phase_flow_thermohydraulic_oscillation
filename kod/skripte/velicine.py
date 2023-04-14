@@ -1,11 +1,11 @@
 import numpy as np
 
 ### diskretizacije i svojstva materijala ###
-rt = 'water'
+rt = 'R11'
 n_l = 50
-l_c = 50
-tau = 20
-dt = 5e-3
+l_c = 1.06
+tau = 10
+dt = 1e-3
 
 lokacije_x = np.linspace(0, l_c, n_l + 1)
 lokacije_x_p = lokacije_x[1:] + 0.5 * (lokacije_x[1] - lokacije_x[0])
@@ -20,15 +20,14 @@ c_c = 880
 lambda_c = 45 
 rho_c = 7850
 k = 0.01 / 1000
-alpha_vanjsko = 2500
-temperatura_ogrijevnog_medija = 273.15 + 700 # 285
+alpha_vanjsko = 3000
+temperatura_ogrijevnog_medija = 273.15 + 250 # 44
 g = 9.81
 # beta = np.pi / 2
 beta = 0
 sin_beta = np.sin(beta)
 
-# dn = 25
-dn = 40
+dn = 10 # 10.9 mm heater tube je u eksperimentu
 dn_unutarnji = [10, 15, 20, 25, 32, 40, 50, 65, 80, 100, 125, 150, 200, 250, 300]
 dn_vanjski = [17.2, 21.3, 26.9, 33.7, 42.4, 48.3, 60.3, 76.1, 88.9, 114.3, 139.7, 168.3, 219.1, 273.0, 323.9]
 d_u = dn / 1000

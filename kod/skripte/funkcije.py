@@ -75,6 +75,34 @@ def zokg_brzina(pretpostavka_brzine, brzina_na_ulazu, tlak, tlak_na_izlazu, enta
     d = d + (1 - podrelaksacija) * b * pretpostavka_brzine
     return tdma(a, b, c, d)
 
+def zokg_brzina_stacionarno(pretpostavka_brzine, brzina_na_ulazu, tlak, tlak_na_izlazu, entalpija, gustoca,
+                            gustoca_na_ulazu, dx, podrelaksacija):
+    n = len(dx)
+    a = np.zeros(n)
+    a[1:-1] = - gustoca[1:-1] * pretpostavka_brzine[:-2]
+    a[0] = 0
+    a[-1] = - gustoca[-1] * pretpostavka_brzine[-2]
+    a = a[1:]
+    b = np.zeros(n)
+    b[1:-1] = gustoca[2:] * pretpostavka_brzine[1:-1]
+    b[0] = gustoca[1] * pretpostavka_brzine[0]
+    b[-1] = gustoca[-1] * pretpostavka_brzine[-1]
+    b = b / podrelaksacija
+    c = np.zeros(n - 1)
+    d = np.zeros(n)
+    d[1:-1] = - dpdl_trenja(tlak[1:-1], entalpija[1:-1], pretpostavka_brzine[1:-1] * gustoca[1:-1], epsilon) * dx[1:-1] \
+              - gustoca[1:-1] * g * sin_beta * dx[1:-1] \
+              - (tlak[2:] - tlak[1:-1])
+    d[0] = gustoca_na_ulazu * brzina_na_ulazu * brzina_na_ulazu \
+           - dpdl_trenja(tlak[0], entalpija[0], pretpostavka_brzine[0] * gustoca[0], epsilon) * dx[0] \
+           - gustoca[0] * g * sin_beta * dx[0] \
+           - (tlak[1] - tlak[0])
+    d[-1] = - dpdl_trenja(tlak[-1], entalpija[-1], pretpostavka_brzine[-1] * gustoca[-1], epsilon) * dx[-1] \
+            - gustoca[-1] * g * sin_beta * dx[-1] \
+            - (tlak_na_izlazu - tlak[-1])
+    d = d + (1 - podrelaksacija) * b * pretpostavka_brzine
+    return tdma(a, b, c, d)
+
 def zokg_tlak(brzina, brzina_proslog_trenutka, brzina_na_ulazu, gustoca, gustoca_proslog_trenutka, gustoca_na_ulazu,
               tlak_na_izlazu, entalpija, dx, pretpostavka_tlaka, podrelaksacija):
     n = len(dx)
@@ -163,6 +191,52 @@ def zom_zokg_tlak(brzina, pretpostavka_tlaka, tlak_visokotlacno, tlak_niskotlacn
             / (gustoca[-1] * (dx[-1] / dt + brzina[-1])) * gustoca[-1]
     return tdma(a, b, c, d)
 
+def zom_zokg_tlak_stacionarno(brzina, pretpostavka_tlaka, tlak_visokotlacno, tlak_niskotlacno, entalpija, gustoca, dx):
+    n = len(dx)
+    a = np.zeros(n)
+    a[1:-1] = - gustoca[:-2] / (gustoca[1:-1] * brzina[:-2])
+    a[0] = 0
+    a[-1] = - gustoca[-2] / (gustoca[-1] * brzina[-2])
+    a = a[1:]
+    b = np.zeros(n)
+    b[1:-1] = gustoca[:-2] / (gustoca[1:-1] * brzina[:-2]) \
+              + gustoca[1:-1] / (gustoca[2:] * brzina[1:-1])
+    b[0] = gustoca[0] / (gustoca[1] * brzina[0]) \
+           + gustoca[0] / (np.sqrt(2 * gustoca[0] * (tlak_visokotlacno - pretpostavka_tlaka[0])))
+    b[-1] = gustoca[-2] / (gustoca[-1] * brzina[-2]) \
+            + gustoca[-1] / (gustoca[-1] * brzina[-1])
+    c = np.zeros(n)
+    c[1:-1] = - gustoca[1:-1] / (gustoca[2:] * brzina[1:-1])
+    c[0] = - gustoca[0] / (gustoca[1] * brzina[0])
+    c[-1] = 0
+    c = c[:-1]
+    brzina_i_minus_dva = np.append(brzina[0], brzina)[:-3]
+    d = np.zeros(n)
+    d[1:-1] = + (gustoca[:-2] * brzina_i_minus_dva * (dx[1:-1] / dt + brzina_i_minus_dva)
+                 - dpdl_trenja(pretpostavka_tlaka[:-2], entalpija[:-2], brzina[:-2] * gustoca[:-2], epsilon) * dx[1:-1]
+                 - gustoca[:-2] * g * sin_beta * dx[1:-1]) \
+              / (gustoca[1:-1] * brzina[:-2]) * gustoca[:-2] \
+              - (gustoca[1:-1] * brzina[:-2] * brzina[:-2]
+                 - dpdl_trenja(pretpostavka_tlaka[1:-1], entalpija[1:-1], brzina[1:-1] * gustoca[1:-1], epsilon) * dx[1:-1]
+                 - gustoca[1:-1] * g * sin_beta * dx[1:-1]) \
+              / (gustoca[2:] *  brzina[1:-1]) * gustoca[1:-1]
+    d[0] = + np.sqrt(2 * gustoca[0] * (tlak_visokotlacno - pretpostavka_tlaka[0])) \
+           + pretpostavka_tlaka[0] * np.sqrt(gustoca[0]) / np.sqrt(2 * (tlak_visokotlacno - pretpostavka_tlaka[0])) \
+           - (gustoca[0] * brzina[0] * brzina[0]
+              - dpdl_trenja(pretpostavka_tlaka[0], entalpija[0], brzina[0] * gustoca[0], epsilon) * dx[0]
+              - gustoca[0] * g * sin_beta * dx[0]) \
+           / (gustoca[1] * brzina[0]) * gustoca[0]
+    d[-1] = gustoca[-1] / (gustoca[-1] * brzina[-1]) * tlak_niskotlacno \
+            + (gustoca[-2] * brzina[-3] * brzina[-3]
+               - dpdl_trenja(pretpostavka_tlaka[-2], entalpija[-2], brzina[-2] * gustoca[-2], epsilon) * dx[-1]
+               - gustoca[-2] * g * sin_beta * dx[-1]) \
+            / (gustoca[-1] * brzina[-2]) * gustoca[-2] \
+            - (gustoca[-1] * brzina[-2] * brzina[-2]
+               - dpdl_trenja(pretpostavka_tlaka[-1], entalpija[-1], brzina[-1] * gustoca[-1], epsilon) * dx[-1]
+               - gustoca[-1] * g * sin_beta * dx[-1]) \
+            / (gustoca[-1] * brzina[-1]) * gustoca[-1]
+    return tdma(a, b, c, d)
+
 def zoe_entalpija(brzina, brzina_proslog_trenutka, brzina_na_ulazu, gustoca, gustoca_proslog_trenutka, gustoca_na_ulazu,
                   tlak, tlak_proslog_trenutka, entalpija_proslog_trenutka, entalpija_na_ulazu, q_w, dx,
                   pretpostavka_entalpije, podrelaksacija):
@@ -204,6 +278,37 @@ def zoe_entalpija(brzina, brzina_proslog_trenutka, brzina_na_ulazu, gustoca, gus
     d = d + (1 - podrelaksacija) * b * pretpostavka_entalpije
     return tdma(a, b, c, d)
 
+def zoe_entalpija_stacionarno(brzina, brzina_na_ulazu, gustoca, gustoca_na_ulazu, entalpija_na_ulazu, q_w, dx,
+                              pretpostavka_entalpije, podrelaksacija):
+    n = len(dx)
+    a = np.zeros(n)
+    a[1:-1] = - gustoca[:-2] * brzina[:-2]
+    a[0] = 0
+    a[-1] = - gustoca[-2] * brzina[-2]
+    a = a[1:]
+    b = np.zeros(n)
+    b[1:-1] = gustoca[1:-1] * brzina[1:-1]
+    b[0] = gustoca[0] * brzina[0]
+    b[-1] = gustoca[-1] * brzina[-1]
+    b = b / podrelaksacija
+    c = np.zeros(n - 1)
+    d = np.zeros(n)
+    d[1:-1] = + q_w[1:-1] * dx[1:-1] * d_u * np.pi / a_u \
+              - gustoca[1:-1] * brzina[1:-1] ** 3 / 2 \
+              + gustoca[:-2] * brzina[:-2] ** 3 / 2 \
+              - gustoca[1:-1] * brzina[1:-1] * g * sin_beta * dx[1:-1]
+    d[0] = + q_w[0] * dx[0] * d_u * np.pi / a_u \
+           - gustoca[0] * brzina[0] ** 3 / 2 \
+           + gustoca_na_ulazu * brzina_na_ulazu ** 3 / 2 \
+           + gustoca_na_ulazu * brzina_na_ulazu * entalpija_na_ulazu \
+           - gustoca[0] * brzina[0] * g * sin_beta * dx[0]
+    d[-1] = + q_w[-1] * dx[-1] * d_u * np.pi / a_u \
+            - gustoca[-1] * brzina[-1] ** 3 / 2 \
+            + gustoca[-2] * brzina[-2] ** 3 / 2 \
+            - gustoca[-1] * brzina[-1] * g * sin_beta * dx[-1]
+    d = d + (1 - podrelaksacija) * b * pretpostavka_entalpije
+    return tdma(a, b, c, d)
+
 def temp_stijenke(temp_stijenke_proslog_trenutka, temperatura_fluida, alpha_u, dx):
     n = len(dx)
     a = np.zeros(n)
@@ -231,6 +336,32 @@ def temp_stijenke(temp_stijenke_proslog_trenutka, temperatura_fluida, alpha_u, d
     c = c[:-1]
     d = dx / dt * temp_stijenke_proslog_trenutka \
         + 4 * d_v * alpha_vanjsko / (rho_c * c_c * (d_v ** 2 - d_u ** 2)) * temperatura_ogrijevnog_medija \
+        + 4 * d_u * alpha_u / (rho_c * c_c * (d_v ** 2 - d_u ** 2)) * temperatura_fluida
+    return tdma(a, b, c, d)
+
+def temp_stijenke_stacionarno(temperatura_fluida, alpha_u, dx):
+    n = len(dx)
+    a = np.zeros(n)
+    a[1:-1] = - lambda_c / (rho_c * c_c * dx[1:-1])
+    a[0] = 0
+    a[-1] = lambda_c / (rho_c * c_c * dx[-1])
+    a = a[1:]
+    b = np.zeros(n)
+    b[1:-1] = + 2 * lambda_c / (rho_c * c_c * dx[1:-1]) \
+              + 4 * d_v * alpha_vanjsko / (rho_c * c_c * (d_v ** 2 - d_u ** 2)) \
+              + 4 * d_u * alpha_u[1:-1] / (rho_c * c_c * (d_v ** 2 - d_u ** 2))
+    b[0] = + lambda_c / (rho_c * c_c * dx[0]) \
+           + 4 * d_v * alpha_vanjsko / (rho_c * c_c * (d_v ** 2 - d_u ** 2)) \
+           + 4 * d_u * alpha_u[0] / (rho_c * c_c * (d_v ** 2 - d_u ** 2))
+    b[-1] = - lambda_c / (rho_c * c_c * dx[-1]) \
+            + 4 * d_v * alpha_vanjsko / (rho_c * c_c * (d_v ** 2 - d_u ** 2)) \
+            + 4 * d_u * alpha_u[-1] / (rho_c * c_c * (d_v ** 2 - d_u ** 2))
+    c = np.zeros(n)
+    c[1:-1] = - lambda_c / (rho_c * c_c * dx[1:-1])
+    c[0] = - lambda_c / (rho_c * c_c * dx[0])
+    c[-1] = 0
+    c = c[:-1]
+    d = + 4 * d_v * alpha_vanjsko / (rho_c * c_c * (d_v ** 2 - d_u ** 2)) * temperatura_ogrijevnog_medija \
         + 4 * d_u * alpha_u / (rho_c * c_c * (d_v ** 2 - d_u ** 2)) * temperatura_fluida
     return tdma(a, b, c, d)
 
@@ -307,6 +438,9 @@ def dpdl_trenja(p, h, m, epsilon): # Müller-Steinhagen and Heck
 def petukhov(f, re, pr):
     return (f / 8) * re * pr / (1.07 + 12.7 * np.sqrt(f / 8) * (pr ** (2 / 3) - 1))
 
+def dittus_boelter(re, pr):
+    return 0.023 * re ** 0.8 * pr ** 0.4
+
 def alpha_unutarnje(p, h, m, q): # Gungor and Winterton (1987)
     x = x_termo(p, h)
     x_r = x_realno(p, h)
@@ -321,13 +455,16 @@ def alpha_unutarnje(p, h, m, q): # Gungor and Winterton (1987)
     h_lg = entalpija_g(p) - entalpija_f(p)
     bo = np.absolute( q / (m * h_lg) )
     e_new = 1 + 3000 * bo ** 0.86 + 1.12 * (x_r / (1 - x_r)) ** 0.75 * (rho_l / rho_g) ** 0.41
+    e_new = 0.1 * e_new # smanjenje 10 puta da bi odgovaralo eksperimentu
     re_l = (1 - x_r) * m * d_u / mu_l
     re_g = x_r * m * d_u / mu_g
     f_l = swamee_jain(re_l, epsilon)
     f_g = swamee_jain(re_g, epsilon)
-
     alpha_l = petukhov(f_l, re_l, pr_l) * (k_l / d_u)
     alpha_g = petukhov(f_g, re_g, pr_g) * (k_g / d_u)
+    # dittus-boelter je manji
+    # alpha_l = dittus_boelter(re_l, pr_l) * (k_l / d_u)
+    # alpha_g = dittus_boelter(re_g, pr_g) * (k_g / d_u)
     alpha_tp = e_new * alpha_l
 
     alpha_sigma = 0.01
@@ -482,4 +619,3 @@ def temperatura_interpolirana(p, h):
 # im = plt.imshow(matrica_gustoce, cmap='hot')
 # plt.colorbar(im, orientation='horizontal')
 
-# 15e5_30e5_4e5_3.5e6_400
