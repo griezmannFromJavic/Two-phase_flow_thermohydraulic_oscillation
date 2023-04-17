@@ -366,14 +366,6 @@ def generiraj_matrice_temperature(p_min, p_max, broj_podjela_p, h_min, h_max, br
         matrica[i] = stanje_temperatura(tlakovi[i], entalpije)
     return matrica
 
-def generiraj_matrice_xt(p_min, p_max, broj_podjela_p, h_min, h_max, broj_podjela_h):
-    tlakovi = np.linspace(p_min, p_max, broj_podjela_p)
-    entalpije = np.linspace(h_min, h_max, broj_podjela_h)
-    matrica = np.zeros((broj_podjela_p, broj_podjela_h))
-    for i in range(broj_podjela_p):
-        matrica[i] = x_termo(tlakovi[i], entalpije)
-    return matrica
-
 def snimi_matrice(p_min, p_max, broj_podjela_p, h_min, h_max, broj_podjela_h):
     putanja_direktorija = '/home/josip/Desktop/diplomski/kod/velicine_stanja/'
     os.makedirs(os.path.dirname(putanja_direktorija), exist_ok=True)

@@ -41,6 +41,7 @@ def vanjska_iteracija_velocity_based(trenutak, pretpostavka, vrijednost_proslog_
     rjesenje = np.stack((brzina, tlak, entalpija, gustoca, temperatura, temperatura_stijenke, specificni_toplinski_tok))
     return rjesenje
 
+# krivo, a dobro radi, mozda cak stabilniji od običnog koda
 def vanjska_iteracija(trenutak, pretpostavka, vrijednost_proslog_trenutka, podrelaksacija):
     tlak = zom_zokg_tlak(pretpostavka[0], pretpostavka[1], p_visokotlacno[trenutak], p_niskotlacno[trenutak], pretpostavka[2],
                          pretpostavka[3], vrijednost_proslog_trenutka[3], dx)
@@ -116,6 +117,42 @@ def vanjska_iteracija_fiksno_ustrujavanje(trenutak, pretpostavka, vrijednost_pro
     rjesenje = np.stack((brzina, tlak, entalpija, gustoca, temperatura, temperatura_stijenke, specificni_toplinski_tok))
     return rjesenje
 
+def vanjska_iteracija_pressure_based(trenutak, pretpostavka, vrijednost_proslog_trenutka, podrelaksacija):
+    tlak = zom_zokg_tlak(pretpostavka[0], pretpostavka[1], p_visokotlacno[trenutak], p_niskotlacno[trenutak], pretpostavka[2],
+                         pretpostavka[3], vrijednost_proslog_trenutka[3], dx)
+    tlak = eksplicitna(tlak, pretpostavka[1], podrelaksacija[1])
+
+    tlak_na_ulazu = tlak[0]
+
+    brzina_na_ulazu = brzina_ekspanzije(p_visokotlacno[trenutak] - tlak_na_ulazu, pretpostavka[3,0])
+    entalpija_na_ulazu = h_visokotlacno[trenutak] - brzina_na_ulazu ** 2 / 2
+    gustoca_na_ulazu = gustoca_interpolirana(tlak_na_ulazu, entalpija_na_ulazu)
+
+    brzina = zokg_brzina(pretpostavka[0], brzina_na_ulazu, tlak, p_niskotlacno[trenutak], pretpostavka[2],
+                         pretpostavka[3], gustoca_na_ulazu, dx, podrelaksacija[0])
+
+    entalpija = zoe_entalpija(brzina, vrijednost_proslog_trenutka[0], brzina_na_ulazu, pretpostavka[3],
+                              vrijednost_proslog_trenutka[3], gustoca_na_ulazu, tlak, vrijednost_proslog_trenutka[1],
+                              vrijednost_proslog_trenutka[2], entalpija_na_ulazu, pretpostavka[6], dx, pretpostavka[2],
+                              podrelaksacija[2])
+
+    gustoca = gustoca_interpolirana(tlak, entalpija)
+    gustoca = eksplicitna(gustoca, pretpostavka[3], podrelaksacija[3])
+
+    temperatura = temperatura_interpolirana(tlak, entalpija)
+    temperatura = eksplicitna(temperatura, pretpostavka[4], podrelaksacija[4])
+
+    alpha_unutarnje_izracunato = alpha_unutarnje(tlak, entalpija, brzina * gustoca, pretpostavka[6]) # ne zapisuje se
+
+    temperatura_stijenke = temp_stijenke(vrijednost_proslog_trenutka[5], temperatura, alpha_unutarnje_izracunato, dx)
+    temperatura_stijenke = eksplicitna(temperatura_stijenke, pretpostavka[5], podrelaksacija[5])
+
+    specificni_toplinski_tok = alpha_unutarnje_izracunato * (temperatura_stijenke - temperatura)
+    specificni_toplinski_tok = eksplicitna(specificni_toplinski_tok, pretpostavka[6], podrelaksacija[6])
+
+    rjesenje = np.stack((brzina, tlak, entalpija, gustoca, temperatura, temperatura_stijenke, specificni_toplinski_tok))
+    return rjesenje
+
 def rjesavac_trenutka(trenutak, vrijednost_proslog_trenutka, podrelaksacija, rezidual_limit):
     global broj_iteracija
     broj_iteracija = 0
@@ -127,8 +164,6 @@ def rjesavac_trenutka(trenutak, vrijednost_proslog_trenutka, podrelaksacija, rez
         uvjet = any( np.greater(rezidual, rezidual_limit) )
         rjesenje_1 = rjesenje_2
         broj_iteracija = broj_iteracija + 1
-        print(broj_iteracija)
-        print(rezidual)
     return rjesenje_1
 
 def rjesavac(pocetni_trenutak, podrelaksacija, rezidual_limit):
@@ -152,7 +187,8 @@ def snimi_trenutak(stanje, vremenski_trenutak):
     for i in range( broj_velicina ):
         putanja_velicine = putanja_direktorija + raspored_velicina[i] + '.csv'
         np.savetxt(putanja_velicine, stanje[i], delimiter=",")
-    return print('broj iteracija: ', broj_iteracija)
+
+    return print('\nvremenski trenutak: ', vremenski_trenutak, '\nbroj iteracija: ', broj_iteracija)
 
 zeljeni_rezidual = 5e-5
 imp = 0.05
@@ -166,6 +202,6 @@ podrelaksacije[1] = 0.1
 podrelaksacije[3] = 0.002
 podrelaksacije[6] = 0.5
 
-rjesavac(11, podrelaksacije, reziduali)
+rjesavac(1, podrelaksacije, reziduali)
 # rjesavac_uz_moje_pretpostavke(podrelaksacije, reziduali)
 

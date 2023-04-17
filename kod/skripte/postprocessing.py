@@ -225,3 +225,48 @@ def provjera_aproksimiranih_temperatura(p, x_min, x_max):
     plt.plot(xt, temperature_aproksimacija, label='aproksimirane_gustoce')
     plt.legend()
     return None
+
+def prikaz_lokacija_isparavanja():
+    xt = termo_udio_pare()
+    umnozak_susjeda = xt[:, 1:] * xt[:, :-1]
+    nultocke = np.ones(np.shape(umnozak_susjeda)) * (umnozak_susjeda < 0)
+    elementi = np.transpose(np.nonzero(nultocke))[:,1]
+    lokacije = [lokacije_x[i] for i in elementi]
+    plt.plot(vremena, lokacije)
+    return lokacije
+
+def odnos_gustoca(tlak):
+    return CP.PropsSI('D', 'P', tlak, 'Q', 0, rt) / CP.PropsSI('D', 'P', tlak, 'Q', 1, rt)
+
+# nedovrseno
+def achard_bezdimenzijske(trenutak):
+    brzina = rjesenje[trenutak, 0, :]
+    tlak = rjesenje[trenutak, 1, :]
+    srednji_tlak = np.average(tlak)
+    entalpija = rjesenje[trenutak, 2, :]
+    gustoca = rjesenje[trenutak, 3, :]
+    toplinski_tok = rjesenje[trenutak, 6, :]
+    q_0 = np.average(toplinski_tok)
+
+    p_h = d_u * np.pi
+
+    v_f = 1 / CP.PropsSI('D', 'P', srednji_tlak, 'Q', 0, rt)
+    v_g = 1 / CP.PropsSI('D', 'P', srednji_tlak, 'Q', 1, rt)
+    v_fg = v_g - v_f
+    h_f = CP.PropsSI('H', 'P', srednji_tlak, 'Q', 0, rt)
+    h_g = CP.PropsSI('H', 'P', srednji_tlak, 'Q', 1, rt)
+    h_fg = h_g - h_f
+    h_i = rjesenje[trenutak, 2, 0]
+
+    v_0 = (q_0 * p_h * v_f * l_c) / (a_u * (h_f - h_i))
+
+    f = d_u / (2 * gustoca * brzina ** 2) * dpdl_trenja(tlak, entalpija, brzina * gustoca, epsilon)
+    f = np.average(f)
+
+    n_sub = (v_fg * (h_f - h_i)) / (v_f * h_fg)
+    gamma = f * l_c / (2 * d_u)
+    fr = v_0 ** 2 / (g * l_c)
+    fr_inverz = 1 / fr
+    j = brzina[0] / v_0 # provjeri
+
+    return print('N_SUB = ', n_sub, '\nGAMMA = ', gamma, '\nFROUDE^-1 = ', fr_inverz, '\nj = ', j)
