@@ -1,2 +1,1 @@
-# evaporation_simulation
-# stabilno u dvofaznom području s uključenom fizikom trenja i prijelaza topline dvofaznog strujanja
+Code used for [my Master's thesis](https://zir.nsk.hr/islandora/object/fsb%3A9362)
